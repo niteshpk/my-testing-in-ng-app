@@ -1,0 +1,37 @@
+<div class="content">
+  <span>{{ title }} app is running!</span>
+
+  <div>
+    <button (click)="addUser()">Add User</button>
+  </div>
+  <div *ngIf="loading" class="spinner"></div>
+
+  <!-- User Table -->
+  <table *ngIf="!loading" class="user-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Edit</th>
+        <th>Delete</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngIf="!users.length">
+        <td colspan="6">No users found</td>
+      </tr>
+      <tr *ngFor="let user of users">
+        <td>{{ user.id }}</td>
+        <td>{{ user.name }}</td>
+        <td>{{ user.email }}</td>
+        <td>{{ user.phone }}</td>
+        <td><button class="edit-btn" (click)="editUser(user)">EDIT</button></td>
+        <td>
+          <button class="delete-btn" (click)="deleteUser(user)">DEL</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
