@@ -1,0 +1,34 @@
+<div id="user-dialog">
+  <h2 mat-dialog-title>{{ data && data.user ? "Edit User" : "Add User" }}</h2>
+  <form [formGroup]="userForm" class="form-container">
+    <mat-form-field appearance="outline">
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" formControlName="email" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Phone</mat-label>
+      <input matInput formControlName="phone" />
+    </mat-form-field>
+
+    <div mat-dialog-actions align="end">
+      <button mat-button (click)="onCancel()" class="cancel-button">
+        Cancel
+      </button>
+      <button
+        mat-button
+        mat-raised-button
+        color="primary"
+        (click)="onSave()"
+        [disabled]="!userForm.valid"
+      >
+        Save
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,172 +1,191 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RouterTestingModule } from '@angular/router/testing';
 import { AppComponent } from './app.component';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import {
+  MAT_DIALOG_DATA,
+  MatDialog,
+  MatDialogModule,
+  MatDialogRef,
+} from '@angular/material/dialog';
 import { UserService } from './services/user.service';
 import { of } from 'rxjs';
-import { By } from '@angular/platform-browser';
 import { User } from './models/user.model';
+import { UserDialogComponent } from './user-dialog/user-dialog.component';
+import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { By } from '@angular/platform-browser';
+import { USER, USERS_LIST } from './mocks/user';
+import { MatTableModule } from '@angular/material/table';
 
 describe('AppComponent', () => {
-  let userService: UserService;
   let component: AppComponent;
   let fixture: ComponentFixture<AppComponent>;
+  let userService: jasmine.SpyObj<UserService>;
+  let dialogSpy: jasmine.SpyObj<MatDialog>;
+
+  const mockUsers: User[] = [...USERS_LIST];
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [RouterTestingModule, HttpClientTestingModule, HttpClientModule],
-      declarations: [AppComponent],
-      providers: [HttpClient, UserService],
-    }).compileComponents();
-  });
+    const userServiceMock = jasmine.createSpyObj('UserService', [
+      'getUsers',
+      'addUser',
+      'editUser',
+      'deleteUser',
+    ]);
 
-  beforeEach(() => {
-    userService = TestBed.inject(UserService);
+    dialogSpy = jasmine.createSpyObj('MatDialog', ['open']);
+
+    dialogSpy.open.and.returnValue({
+      afterClosed: () => of(null),
+    } as any);
+
+    userServiceMock.getUsers.and.returnValue(of(mockUsers));
+
+    await TestBed.configureTestingModule({
+      imports: [MatDialogModule, HttpClientTestingModule, MatTableModule],
+      declarations: [AppComponent],
+      providers: [
+        { provide: UserService, useValue: userServiceMock },
+        { provide: MatDialog, useValue: dialogSpy },
+        { provide: MatDialogRef, useValue: { close: jasmine.createSpy() } },
+        {
+          provide: MAT_DIALOG_DATA,
+          useValue: {
+            user: {
+              ...USER,
+            },
+          },
+        },
+      ],
+    }).compileComponents();
+
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;
+    userService = TestBed.inject(UserService) as jasmine.SpyObj<UserService>;
+    dialogSpy = TestBed.inject(MatDialog) as jasmine.SpyObj<MatDialog>;
+
     fixture.detectChanges();
   });
 
-  it('should display "No users found" when there are no users', () => {
-    component.loading = false;
-    component.users = [];
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    const noUsersMessage = compiled.querySelector(
-      '.user-table tbody tr td'
-    )?.textContent;
-    expect(noUsersMessage).toBe('No users found');
+  it('should create the component', () => {
+    expect(component).toBeTruthy();
   });
 
-  it('should call editUser method when edit button is clicked', () => {
-    spyOn(component, 'editUser');
-    component.loading = false;
-    component.users = [
-      {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
-        phone: '123-456-7890',
-      },
-    ];
-    fixture.detectChanges();
-    const editButton = fixture.debugElement.query(
-      By.css('.user-table tbody tr td button.edit-btn')
-    ).nativeElement;
-    editButton.click();
-    expect(component.editUser).toHaveBeenCalledWith(component.users[0]);
+  it('should initialize users in ngOnInit', () => {
+    userService.getUsers.and.returnValue(of(mockUsers));
+
+    component.ngOnInit();
+
+    expect(userService.getUsers).toHaveBeenCalled();
+    expect(component.users.length).toBe(2);
+    expect(component.loading).toBeFalse();
   });
 
-  it('should call deleteUser method when delete button is clicked and user confirms', () => {
-    const user: User = {
+  it('should open dialog and add user on addUser()', () => {
+    const newUser: User = { ...USER, id: 3 };
+
+    dialogSpy.open.and.returnValue({
+      afterClosed: jasmine.createSpy().and.returnValue(of(newUser)),
+    } as any);
+
+    userService.addUser.and.returnValue(of(newUser));
+
+    component.addUser();
+
+    expect(dialogSpy.open).toHaveBeenCalledWith(UserDialogComponent, {
+      width: '400px',
+    });
+
+    expect(userService.addUser).toHaveBeenCalledWith(newUser);
+  });
+
+  it('should open dialog and edit user on editUser()', () => {
+    const updatedUser: User = {
       id: 1,
-      name: 'John Doe',
-      email: 'john@example.com',
-      phone: '123-456-7890',
+      name: 'Updated John',
+      email: 'updated@example.com',
+      phone: '9876543210',
     };
 
-    spyOn(window, 'confirm').and.returnValue(true);
-    spyOn(component, 'deleteUser').and.callThrough();
-    spyOn(userService, 'deleteUser').and.returnValue(of(user));
+    dialogSpy.open.and.returnValue({
+      afterClosed: () => of(updatedUser),
+    } as any);
 
-    component.loading = false;
-    component.users = [user];
-    fixture.detectChanges();
+    userService.editUser.and.returnValue(of(updatedUser));
 
-    const deleteButton = fixture.debugElement.query(
-      By.css('.user-table tbody tr td button.delete-btn')
-    ).nativeElement;
-    deleteButton.click();
+    component.editUser(mockUsers[0]);
 
-    expect(window.confirm).toHaveBeenCalledWith(
-      'Are you sure you want to delete John Doe?'
-    );
-    expect(component.deleteUser).toHaveBeenCalledWith(user);
-    expect(userService.deleteUser).toHaveBeenCalledWith(user);
+    expect(dialogSpy.open).toHaveBeenCalledWith(UserDialogComponent, {
+      width: '400px',
+      data: { user: mockUsers[0] },
+    });
+
+    expect(userService.editUser).toHaveBeenCalledWith(updatedUser);
   });
 
-  it('should not call deleteUser method when delete button is clicked and user cancels', () => {
-    spyOn(window, 'confirm').and.returnValue(false);
-    spyOn(component, 'deleteUser').and.callThrough();
-    spyOn(component.userService, 'deleteUser');
+  it('should open confirm dialog and delete user on deleteUser()', () => {
+    dialogSpy.open.and.returnValue({
+      afterClosed: () => of(true),
+    } as any);
 
-    component.loading = false;
-    component.users = [
-      {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
-        phone: '123-456-7890',
+    userService.deleteUser.and.returnValue(of({} as User));
+
+    component.deleteUser(mockUsers[0]);
+
+    expect(dialogSpy.open).toHaveBeenCalledWith(ConfirmDialogComponent, {
+      width: '350px',
+      data: {
+        message: `Are you sure you want to delete ${mockUsers[0].name}?`,
       },
-    ];
+    });
+
+    expect(userService.deleteUser).toHaveBeenCalledWith(mockUsers[0]);
+  });
+
+  it('should not add user if dialog is closed without data', () => {
+    dialogSpy.open.and.returnValue({
+      afterClosed: () => of(null),
+    } as any);
+
+    component.addUser();
+
+    expect(userService.addUser).not.toHaveBeenCalled();
+  });
+
+  it('should not edit user if dialog is closed without data', () => {
+    dialogSpy.open.and.returnValue({
+      afterClosed: () => of(null),
+    } as any);
+
+    component.editUser(mockUsers[0]);
+
+    expect(userService.editUser).not.toHaveBeenCalled();
+  });
+
+  it('should not delete user if confirmation is cancelled', () => {
+    dialogSpy.open.and.returnValue({
+      afterClosed: () => of(false),
+    } as any);
+
+    component.deleteUser(mockUsers[0]);
+
+    expect(userService.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it('should display loading state initially', () => {
+    expect(component.loading).toBeFalse();
+  });
+
+  it('should render user list', async () => {
+    userService.getUsers.and.returnValue(of(mockUsers));
+
+    component.ngOnInit();
     fixture.detectChanges();
 
-    const deleteButton = fixture.debugElement.query(
-      By.css('.user-table tbody tr td button.delete-btn')
-    ).nativeElement;
-    deleteButton.click();
-
-    expect(window.confirm).toHaveBeenCalledWith(
-      'Are you sure you want to delete John Doe?'
-    );
-
-    expect(component.deleteUser).toHaveBeenCalledWith(component.users[0]);
-    expect(component.userService.deleteUser).not.toHaveBeenCalled();
-  });
-
-  it('should call getUsers on initialization', () => {
-    spyOn(userService, 'getUsers').and.returnValue(of([]));
-    const fixture = TestBed.createComponent(AppComponent);
+    await fixture.whenStable();
     fixture.detectChanges();
-    expect(userService.getUsers).toHaveBeenCalled();
-  });
 
-  it('should display the loading spinner when loading is true', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    app.loading = true;
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.spinner')).toBeTruthy();
-  });
+    const userElements = fixture.debugElement.queryAll(By.css('mat-row'));
 
-  it('should display the user table when loading is false', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    app.loading = false;
-    app.users = [
-      {
-        id: 1,
-        name: 'John Doe',
-        email: 'john@example.com',
-        phone: '123-456-7890',
-      },
-    ];
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.user-table')).toBeTruthy();
-    expect(compiled.querySelectorAll('.user-table tbody tr').length).toBe(1);
-  });
-
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
-  it(`should have as title 'my-testing-in-ng-app'`, () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app.title).toEqual('my-testing-in-ng-app');
-  });
-
-  it('should render title', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    fixture.detectChanges();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('.content span')?.textContent).toContain(
-      'my-testing-in-ng-app app is running!'
-    );
+    expect(userElements.length).toBe(mockUsers.length);
   });
 });
