@@ -6,62 +6,58 @@ import {
   MatDialogModule,
   MatDialogRef,
 } from '@angular/material/dialog';
-import { UserService } from './services/user.service';
-import { of } from 'rxjs';
 import { User } from './models/user.model';
 import { UserDialogComponent } from './user-dialog/user-dialog.component';
 import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { By } from '@angular/platform-browser';
-import { USER, USERS_LIST } from './mocks/user';
 import { MatTableModule } from '@angular/material/table';
+import { provideMockStore, MockStore } from '@ngrx/store/testing';
+import { Store } from '@ngrx/store';
+import { AppState } from './store/reducers/app.state';
+import {
+  loadUsers,
+  addUser,
+  editUser,
+  deleteUser,
+} from './store/actions/user.actions';
+import { selectUsers, selectLoading } from './store/selectors/user.selectors';
+import { of } from 'rxjs';
+import { USERS_LIST, USER } from './mocks/user';
 
 describe('AppComponent', () => {
   let component: AppComponent;
   let fixture: ComponentFixture<AppComponent>;
-  let userService: jasmine.SpyObj<UserService>;
   let dialogSpy: jasmine.SpyObj<MatDialog>;
+  let store: MockStore<AppState>;
 
   const mockUsers: User[] = [...USERS_LIST];
+  const initialState = { users: [], loading: false };
 
   beforeEach(async () => {
-    const userServiceMock = jasmine.createSpyObj('UserService', [
-      'getUsers',
-      'addUser',
-      'editUser',
-      'deleteUser',
-    ]);
-
     dialogSpy = jasmine.createSpyObj('MatDialog', ['open']);
-
-    dialogSpy.open.and.returnValue({
-      afterClosed: () => of(null),
-    } as any);
-
-    userServiceMock.getUsers.and.returnValue(of(mockUsers));
+    dialogSpy.open.and.returnValue({ afterClosed: () => of(null) } as any);
 
     await TestBed.configureTestingModule({
       imports: [MatDialogModule, HttpClientTestingModule, MatTableModule],
       declarations: [AppComponent],
       providers: [
-        { provide: UserService, useValue: userServiceMock },
+        provideMockStore({ initialState }),
         { provide: MatDialog, useValue: dialogSpy },
         { provide: MatDialogRef, useValue: { close: jasmine.createSpy() } },
         {
           provide: MAT_DIALOG_DATA,
-          useValue: {
-            user: {
-              ...USER,
-            },
-          },
+          useValue: { user: { ...USER } },
         },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(AppComponent);
     component = fixture.componentInstance;
-    userService = TestBed.inject(UserService) as jasmine.SpyObj<UserService>;
-    dialogSpy = TestBed.inject(MatDialog) as jasmine.SpyObj<MatDialog>;
+    store = TestBed.inject(Store) as MockStore<AppState>;
+
+    store.overrideSelector(selectUsers, mockUsers);
+    store.overrideSelector(selectLoading, false);
 
     fixture.detectChanges();
   });
@@ -70,35 +66,36 @@ describe('AppComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should initialize users in ngOnInit', () => {
-    userService.getUsers.and.returnValue(of(mockUsers));
-
+  it('should dispatch loadUsers on init', () => {
+    const dispatchSpy = spyOn(store, 'dispatch');
     component.ngOnInit();
-
-    expect(userService.getUsers).toHaveBeenCalled();
-    expect(component.users.length).toBe(2);
-    expect(component.loading).toBeFalse();
+    expect(dispatchSpy).toHaveBeenCalledWith(loadUsers());
   });
 
-  it('should open dialog and add user on addUser()', () => {
+  it('should select users from store', (done) => {
+    component.users$.subscribe((users) => {
+      expect(users).toEqual(mockUsers);
+      done();
+    });
+  });
+
+  it('should open dialog and dispatch addUser action', () => {
     const newUser: User = { ...USER, id: 3 };
 
     dialogSpy.open.and.returnValue({
       afterClosed: jasmine.createSpy().and.returnValue(of(newUser)),
     } as any);
 
-    userService.addUser.and.returnValue(of(newUser));
-
+    const dispatchSpy = spyOn(store, 'dispatch');
     component.addUser();
 
     expect(dialogSpy.open).toHaveBeenCalledWith(UserDialogComponent, {
       width: '400px',
     });
-
-    expect(userService.addUser).toHaveBeenCalledWith(newUser);
+    expect(dispatchSpy).toHaveBeenCalledWith(addUser({ user: newUser }));
   });
 
-  it('should open dialog and edit user on editUser()', () => {
+  it('should open dialog and dispatch editUser action', () => {
     const updatedUser: User = {
       id: 1,
       name: 'Updated John',
@@ -110,8 +107,7 @@ describe('AppComponent', () => {
       afterClosed: () => of(updatedUser),
     } as any);
 
-    userService.editUser.and.returnValue(of(updatedUser));
-
+    const dispatchSpy = spyOn(store, 'dispatch');
     component.editUser(mockUsers[0]);
 
     expect(dialogSpy.open).toHaveBeenCalledWith(UserDialogComponent, {
@@ -119,16 +115,15 @@ describe('AppComponent', () => {
       data: { user: mockUsers[0] },
     });
 
-    expect(userService.editUser).toHaveBeenCalledWith(updatedUser);
+    expect(dispatchSpy).toHaveBeenCalledWith(editUser({ user: updatedUser }));
   });
 
-  it('should open confirm dialog and delete user on deleteUser()', () => {
+  it('should open confirm dialog and dispatch deleteUser action', () => {
     dialogSpy.open.and.returnValue({
       afterClosed: () => of(true),
     } as any);
 
-    userService.deleteUser.and.returnValue(of({} as User));
-
+    const dispatchSpy = spyOn(store, 'dispatch');
     component.deleteUser(mockUsers[0]);
 
     expect(dialogSpy.open).toHaveBeenCalledWith(ConfirmDialogComponent, {
@@ -138,54 +133,55 @@ describe('AppComponent', () => {
       },
     });
 
-    expect(userService.deleteUser).toHaveBeenCalledWith(mockUsers[0]);
+    expect(dispatchSpy).toHaveBeenCalledWith(
+      deleteUser({ user: mockUsers[0] })
+    );
   });
 
   it('should not add user if dialog is closed without data', () => {
-    dialogSpy.open.and.returnValue({
-      afterClosed: () => of(null),
-    } as any);
+    dialogSpy.open.and.returnValue({ afterClosed: () => of(null) } as any);
+    const dispatchSpy = spyOn(store, 'dispatch');
 
     component.addUser();
-
-    expect(userService.addUser).not.toHaveBeenCalled();
+    expect(dispatchSpy).not.toHaveBeenCalled();
   });
 
   it('should not edit user if dialog is closed without data', () => {
-    dialogSpy.open.and.returnValue({
-      afterClosed: () => of(null),
-    } as any);
+    dialogSpy.open.and.returnValue({ afterClosed: () => of(null) } as any);
+    const dispatchSpy = spyOn(store, 'dispatch');
 
     component.editUser(mockUsers[0]);
-
-    expect(userService.editUser).not.toHaveBeenCalled();
+    expect(dispatchSpy).not.toHaveBeenCalled();
   });
 
   it('should not delete user if confirmation is cancelled', () => {
-    dialogSpy.open.and.returnValue({
-      afterClosed: () => of(false),
-    } as any);
+    dialogSpy.open.and.returnValue({ afterClosed: () => of(false) } as any);
+    const dispatchSpy = spyOn(store, 'dispatch');
 
     component.deleteUser(mockUsers[0]);
-
-    expect(userService.deleteUser).not.toHaveBeenCalled();
+    expect(dispatchSpy).not.toHaveBeenCalled();
   });
 
-  it('should display loading state initially', () => {
-    expect(component.loading).toBeFalse();
+  it('should display loading state correctly', async () => {
+    store.overrideSelector(selectLoading, true);
+    store.refreshState();
+    fixture.detectChanges();
+
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const spinner = fixture.debugElement.query(By.css('.spinner'));
+    expect(spinner).toBeTruthy();
   });
 
-  it('should render user list', async () => {
-    userService.getUsers.and.returnValue(of(mockUsers));
-
-    component.ngOnInit();
+  it('should render user list correctly', async () => {
+    store.overrideSelector(selectUsers, mockUsers);
     fixture.detectChanges();
 
     await fixture.whenStable();
     fixture.detectChanges();
 
     const userElements = fixture.debugElement.queryAll(By.css('mat-row'));
-
     expect(userElements.length).toBe(mockUsers.length);
   });
 });

@@ -8,21 +8,6 @@ import { User } from '../models/user.model';
 
 describe('UserService', () => {
   let service: UserService;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({
-      imports: [HttpClientTestingModule],
-    });
-    service = TestBed.inject(UserService);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
-  });
-});
-
-describe('UserService', () => {
-  let service: UserService;
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
@@ -36,6 +21,10 @@ describe('UserService', () => {
 
   afterEach(() => {
     httpMock.verify();
+  });
+
+  it('should be created', () => {
+    expect(service).toBeTruthy();
   });
 
   it('should call editUser and return the updated user', () => {
@@ -75,10 +64,6 @@ describe('UserService', () => {
     );
     expect(req.request.method).toBe('DELETE');
     req.flush(userToDelete);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
   });
 
   it('should call addUser and return the added user', () => {
