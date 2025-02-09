@@ -1,30 +1,52 @@
-import { Component } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { UserService } from './services/user.service';
+import { UserService } from './store/services/user.service';
 import { User } from './models/user.model';
 import { UserDialogComponent } from './user-dialog/user-dialog.component';
 import { ConfirmDialogComponent } from './confirm-dialog/confirm-dialog.component';
 import { MatTableDataSource } from '@angular/material/table';
+import { Store } from '@ngrx/store';
+import {
+  loadUsers,
+  addUser,
+  deleteUser,
+  editUser,
+} from './store/actions/user.actions';
+import { AppState } from './store/reducers/app.state';
+import { selectUsers, selectLoading } from './store/selectors/user.selectors';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
 })
-export class AppComponent {
-  title = 'my-testing-in-ng-app';
+export class AppComponent implements OnInit, OnDestroy {
+  users$ = this.store.select(selectUsers);
+  loading$ = this.store.select(selectLoading);
+
   users: User[] = [];
   dataSource: MatTableDataSource<User> = new MatTableDataSource();
-  loading: boolean = true;
 
-  constructor(private dialog: MatDialog, public userService: UserService) {}
+  private onDestroy = new Subject<void>();
+
+  constructor(
+    private dialog: MatDialog,
+    public userService: UserService,
+    private store: Store<AppState>
+  ) {}
 
   ngOnInit(): void {
-    this.userService.getUsers().subscribe((data) => {
-      this.users = data;
-      this.loading = false;
-      this.dataSource = new MatTableDataSource(data);
+    this.users$.pipe(takeUntil(this.onDestroy)).subscribe((users) => {
+      this.users = users;
     });
+
+    this.store.dispatch(loadUsers());
+  }
+
+  ngOnDestroy(): void {
+    this.onDestroy.next();
+    this.onDestroy.complete();
   }
 
   addUser(): void {
@@ -35,10 +57,7 @@ export class AppComponent {
     const id = this.users.length + 1;
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.userService.addUser(result).subscribe((user) => {
-          user.id = id;
-          this.users = [...this.users, user];
-        });
+        this.store.dispatch(addUser({ user: { id, ...result } }));
       }
     });
   }
@@ -51,11 +70,7 @@ export class AppComponent {
 
     dialogRef.afterClosed().subscribe((updatedUser) => {
       if (updatedUser) {
-        this.userService.editUser(updatedUser).subscribe(() => {
-          this.users = this.users.map((u) =>
-            u.id === updatedUser.id ? updatedUser : u
-          );
-        });
+        this.store.dispatch(editUser({ user: updatedUser }));
       }
     });
   }
@@ -68,9 +83,7 @@ export class AppComponent {
 
     dialogRef.afterClosed().subscribe((result) => {
       if (result) {
-        this.userService.deleteUser(user).subscribe(() => {
-          this.users = this.users.filter((u) => u.id !== user.id);
-        });
+        this.store.dispatch(deleteUser({ user }));
       }
     });
   }
