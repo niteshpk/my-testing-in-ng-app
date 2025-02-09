@@ -91,6 +91,7 @@ describe('AppComponent', () => {
 
     expect(dialogSpy.open).toHaveBeenCalledWith(UserDialogComponent, {
       width: '400px',
+      disableClose: true,
     });
     expect(dispatchSpy).toHaveBeenCalledWith(addUser({ user: newUser }));
   });
@@ -112,6 +113,7 @@ describe('AppComponent', () => {
 
     expect(dialogSpy.open).toHaveBeenCalledWith(UserDialogComponent, {
       width: '400px',
+      disableClose: true,
       data: { user: mockUsers[0] },
     });
 
@@ -131,6 +133,7 @@ describe('AppComponent', () => {
       data: {
         message: `Are you sure you want to delete ${mockUsers[0].name}?`,
       },
+      disableClose: true,
     });
 
     expect(dispatchSpy).toHaveBeenCalledWith(

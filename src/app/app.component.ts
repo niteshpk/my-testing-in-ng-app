@@ -52,6 +52,7 @@ export class AppComponent implements OnInit, OnDestroy {
   addUser(): void {
     const dialogRef = this.dialog.open(UserDialogComponent, {
       width: '400px',
+      disableClose: true,
     });
 
     const id = this.users.length + 1;
@@ -66,6 +67,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(UserDialogComponent, {
       width: '400px',
       data: { user },
+      disableClose: true,
     });
 
     dialogRef.afterClosed().subscribe((updatedUser) => {
@@ -79,6 +81,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(ConfirmDialogComponent, {
       width: '350px',
       data: { message: `Are you sure you want to delete ${user.name}?` },
+      disableClose: true,
     });
 
     dialogRef.afterClosed().subscribe((result) => {

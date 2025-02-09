@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, HostListener, Inject, OnInit } from '@angular/core';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 
@@ -11,6 +11,12 @@ export interface DialogData {
   templateUrl: './user-dialog.component.html',
 })
 export class UserDialogComponent implements OnInit {
+  @HostListener('keydown.enter', ['$event'])
+  onEnterPress(event: KeyboardEvent) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
   userForm: FormGroup;
 
   constructor(

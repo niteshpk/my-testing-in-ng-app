@@ -1,6 +1,6 @@
 <div id="user-dialog">
   <h2 mat-dialog-title>{{ data && data.user ? "Edit User" : "Add User" }}</h2>
-  <form [formGroup]="userForm" class="form-container">
+  <form [formGroup]="userForm" class="form-container" (ngSubmit)="onSave()">
     <mat-form-field appearance="outline">
       <mat-label>Name</mat-label>
       <input matInput formControlName="name" />
@@ -21,6 +21,7 @@
         Cancel
       </button>
       <button
+        type="submit"
         mat-button
         mat-raised-button
         color="primary"
