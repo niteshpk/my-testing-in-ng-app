@@ -17,6 +17,7 @@ import { EffectsModule } from '@ngrx/effects';
 import { StoreModule } from '@ngrx/store';
 import { UserEffects } from './store/effects/user.effects';
 import { reducers } from './store/reducers/app.state';
+// import { localStorageSyncReducer } from './store/reducers/storage.metareducer';
 
 @NgModule({
   declarations: [AppComponent, UserDialogComponent, ConfirmDialogComponent],
@@ -32,6 +33,7 @@ import { reducers } from './store/reducers/app.state';
     MatFormFieldModule,
     BrowserAnimationsModule,
     ReactiveFormsModule,
+    // StoreModule.forRoot(reducers, { metaReducers: [localStorageSyncReducer] }), For local storage sync
     StoreModule.forRoot(reducers),
     EffectsModule.forRoot([UserEffects]),
   ],
